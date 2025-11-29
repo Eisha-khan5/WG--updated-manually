@@ -53,6 +53,15 @@ const Auth = () => {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
+    } else if (isSignUp) {
+      // Additional password strength checks for signup
+      const hasUpperCase = /[A-Z]/.test(formData.password);
+      const hasLowerCase = /[a-z]/.test(formData.password);
+      const hasNumber = /\d/.test(formData.password);
+
+      if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+        newErrors.password = 'Password must contain uppercase, lowercase, and number';
+      }
     }
 
     if (isSignUp && formData.password !== formData.confirmPassword) {

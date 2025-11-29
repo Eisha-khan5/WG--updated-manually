@@ -8,8 +8,7 @@ export type SortOption =
   | 'price-low-high'
   | 'price-high-low'
   | 'newest'
-  | 'discounted'
-  | 'top-sellers';
+  | 'discounted';
 
 interface SortingControlsProps {
   sortBy: SortOption;
@@ -48,12 +47,6 @@ const SortingControls: React.FC<SortingControlsProps> = ({ sortBy, onSortChange 
             <div className="flex items-center gap-2">
               <Tag className="h-4 w-4" />
               Discounted Items
-            </div>
-          </SelectItem>
-          <SelectItem value="top-sellers">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Top Sellers
             </div>
           </SelectItem>
         </SelectContent>

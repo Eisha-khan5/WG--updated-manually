@@ -15,8 +15,11 @@ import { getPersonalizedRecommendations } from '@/services/personalizedRecommend
 import { getUserPreferences } from '@/services/preferencesService';
 // Custom hook to get the current logged-in user (via Supabase Auth in your case)
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const RecommendationsSection = () => {
+  const navigate = useNavigate();
   // Store the list of recommended products
   const [recommendations, setRecommendations] = useState<ProductProps[]>([]);
   // Controls whether to show the loading skeleton
@@ -38,9 +41,9 @@ const RecommendationsSection = () => {
 
         // 1️⃣ Get user preferences from backend (e.g., colors, sizes, categories)
         const preferences = await getUserPreferences(user.id);
-        
+
         // 2️⃣ Get personalized product recommendations (max 6 items here)
-        const data = await getPersonalizedRecommendations(preferences, 9);
+        const data = await getPersonalizedRecommendations(preferences, 6);
 
         // Save the fetched recommendations into state
         setRecommendations(data);
@@ -62,12 +65,13 @@ const RecommendationsSection = () => {
   if (loading) {
     return (
       <Card className="bg-gradient-to-br from-white to-stone-50/50 border border-stone-200/60 shadow-lg">
-        <CardHeader className="border-b border-stone-100 bg-gradient-to-r from-navy-50 to-stone-50">
+        <CardHeader className="border-b border-stone-100 bg-gradient-to-r from-navy-50 to-navy-100">
           <CardTitle className="flex items-center gap-3 text-navy-800">
-            <Sparkles className="h-5 w-5" />
+            <Sparkles className="h-4 w-4" />
             Recommended for You
           </CardTitle>
         </CardHeader>
+
         <CardContent className="p-8">
           {/* Display 6 gray placeholder blocks to mimic product cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -75,6 +79,7 @@ const RecommendationsSection = () => {
               <div key={i} className="animate-pulse">
                 {/* Gray image placeholder */}
                 <div className="aspect-[3/4] bg-gray-200 rounded-lg mb-4"></div>
+
                 {/* Gray text placeholders */}
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-3/4"></div>
@@ -82,6 +87,13 @@ const RecommendationsSection = () => {
                 </div>
               </div>
             ))}
+            {/* View All button */}
+            <Button
+              className="bg-navy-500 text-white px-6 py-2 rounded-full text-sm hover:bg-navy-600 transition"
+              onClick={() => navigate('/search')}
+            >
+              View All
+            </Button>
           </div>
         </CardContent>
       </Card>

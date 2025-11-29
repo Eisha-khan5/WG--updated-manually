@@ -26,21 +26,25 @@ const NoResults: React.FC = () => {
 
       {/* Action buttons */}
       <div className="flex gap-4 justify-center">
-        {/* ('/') means navigate to the home page */}
-        <Button 
-          variant="outline" 
+        {/* Navigate to home page */}
+        <Button
+          variant="outline"
           onClick={() => navigate('/')}
           className="flex items-center gap-2"
         >
           <RefreshCw className="h-4 w-4" />
-          Start over
+          Go to Home
         </Button>
-        <Button 
-          onClick={() => navigate('/')}
+        <Button
+          onClick={() => {
+            // Clear all search params and show all products
+            navigate('/search', { replace: true });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           className="flex items-center gap-2"
         >
           <Search className="h-4 w-4" />
-          Browse all
+          Browse All Products
         </Button>
       </div>
     </div>

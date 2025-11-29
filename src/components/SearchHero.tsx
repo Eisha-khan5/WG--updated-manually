@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from 'lucide-react';
-import { mockProducts } from '@/data/mockProducts';
+import { Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
+import { getPopularSearches, trackSearch, getProductSuggestions } from '@/services/searchTrackingService';
 
 interface SearchHeroProps {
   onSearch: (query: string) => void;
@@ -17,6 +17,11 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [popularSearches, setPopularSearches] = useState<string[]>([
+    'embroidered lawn suit',
+    'blue silk kurta',
+    'bridal lehenga under 10000'
+  ]);
 
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,29 +54,32 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
     setHighlightedIndex(-1);
   }, [location.pathname]);
 
+  // Load popular searches on mount
+  useEffect(() => {
+    const loadPopularSearches = async () => {
+      const popular = await getPopularSearches(3);
+      setPopularSearches(popular);
+    };
+    loadPopularSearches();
+  }, []);
+
   // Update suggestions whenever user types in search bar
   useEffect(() => {
-    if (searchQuery.length >= 1) {
-      const products = mockProducts.map(p => p.name);
-      const brands = [...new Set(mockProducts.map(p => p.brand))];
-      const categories = [...new Set(mockProducts.map(p => p.category))];
-      const fabrics = [...new Set(mockProducts.map(p => p.fabric).filter(Boolean))];
-      const gender = [...new Set(mockProducts.map(p => p.gender).filter(Boolean))];
+    const loadSuggestions = async () => {
+      if (searchQuery.length >= 2) {
+        const productSuggestions = await getProductSuggestions(searchQuery, 8);
+        setSuggestions(productSuggestions);
+        setShowSuggestions(productSuggestions.length > 0);
+        setHighlightedIndex(-1);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+      }
+    };
 
-      const allSuggestions = [...products, ...brands, ...categories, ...fabrics, ...gender];
-
-      const filtered = allSuggestions
-        .filter(item => item && item.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
-      setHighlightedIndex(-1);
-    }
-    else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setHighlightedIndex(-1);
-    }
+    const timeoutId = setTimeout(loadSuggestions, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
   // Handle click outside the suggestion box to close it
@@ -111,10 +119,14 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!searchQuery.trim()) {
       return;
     }
+
+    // Track the search query
+    trackSearch(searchQuery);
+
     onSearch(searchQuery);
     setShowSuggestions(false);
     setHighlightedIndex(-1);
@@ -122,6 +134,10 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
 
   const handlePopularSearch = (query: string) => {
     setSearchQuery(query);
+
+    // Track the popular search
+    trackSearch(query);
+
     onSearch(query);
     setShowSuggestions(false);
     setHighlightedIndex(-1);
@@ -132,6 +148,9 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
     setShowSuggestions(false);
     setHighlightedIndex(-1);
     inputRef.current?.blur();
+
+    // Track the selected suggestion
+    trackSearch(suggestion);
 
     setTimeout(() => {
       onSearch(suggestion);
@@ -238,6 +257,22 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
               }
             />
 
+            {searchQuery && (
+              <Button
+                type="button"
+                size="icon"
+                onClick={() => {
+                  setSearchQuery('');
+                  setShowSuggestions(false);
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-12 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full hover:bg-gray-200 bg-transparent text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Clear</span>
+              </Button>
+            )}
+
             <Button
               type="submit"
               size="icon"
@@ -248,33 +283,38 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
             </Button>
 
             {/* Auto Suggestions Dropdown */}
-            {showSuggestions && (
+            {showSuggestions && suggestions.length > 0 && (
               <motion.div
                 ref={suggestionsRef}
                 id="search-suggestions"
-                className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-neutral-100 overflow-hidden max-h-80 overflow-y-auto"
+                className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-neutral-100 overflow-hidden"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <ul className="py-1">
-                  {suggestions.map((suggestion, index) => (
-                    <motion.li
-                      key={index}
-                      id={`suggestion-${index}`}
-                      className={`px-4 py-2.5 cursor-pointer text-left transition-colors border-b border-neutral-50 last:border-b-0 ${
-                        index === highlightedIndex
-                          ? 'bg-navy-50 text-navy-900'
-                          : 'hover:bg-neutral-50'
-                      }`}
-                      onClick={() => handleSelectSuggestion(suggestion)}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      whileHover={{ backgroundColor: index === highlightedIndex ? "rgba(243, 244, 246, 0.8)" : "rgba(245, 245, 245, 0.8)" }}
-                    >
-                      {suggestion}
-                    </motion.li>
-                  ))}
-                </ul>
+                <div className="max-h-80 overflow-y-auto">
+                  <ul className="py-1">
+                    {suggestions.map((suggestion, index) => (
+                      <motion.li
+                        key={index}
+                        id={`suggestion-${index}`}
+                        className={`px-4 py-2.5 cursor-pointer text-left transition-colors border-b border-neutral-50 last:border-b-0 ${
+                          index === highlightedIndex
+                            ? 'bg-navy-50 text-navy-900'
+                            : 'hover:bg-neutral-50'
+                        }`}
+                        onClick={() => handleSelectSuggestion(suggestion)}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        whileHover={{ backgroundColor: index === highlightedIndex ? "rgba(243, 244, 246, 0.8)" : "rgba(245, 245, 245, 0.8)" }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Search className="w-4 h-4 text-gray-400" />
+                          <span className="capitalize">{suggestion}</span>
+                        </div>
+                      </motion.li>
+                    ))}
+                  </ul>
+                </div>
               </motion.div>
             )}
           </div>
@@ -286,29 +326,16 @@ const SearchHero: React.FC<SearchHeroProps> = ({ onSearch }) => {
             <span className="font-bold text-white drop-shadow-md">Popular searches:</span>
 
             <div className="flex flex-wrap justify-center gap-2">
-              <motion.button
-                onClick={() => handlePopularSearch("embroidered lawn suit")}
-                className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full font-medium hover:bg-white/30 transition border border-white/30"
-                whileHover={{ scale: 1.05 }}
-              >
-                Embroidered Lawn Suit
-              </motion.button>
-
-              <motion.button
-                onClick={() => handlePopularSearch("blue silk kurta")}
-                className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full font-medium hover:bg-white/30 transition border border-white/30"
-                whileHover={{ scale: 1.05 }}
-              >
-                Blue Silk Kurta
-              </motion.button>
-
-              <motion.button
-                onClick={() => handlePopularSearch("bridal lehenga under 10000")}
-                className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full font-medium hover:bg-white/30 transition border border-white/30"
-                whileHover={{ scale: 1.05 }}
-              >
-                Bridal Lehenga Under 10000
-              </motion.button>
+              {popularSearches.map((search, index) => (
+                <motion.button
+                  key={index}
+                  onClick={() => handlePopularSearch(search)}
+                  className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full font-medium hover:bg-white/30 transition border border-white/30 capitalize"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {search}
+                </motion.button>
+              ))}
             </div>
           </div>
         </div>

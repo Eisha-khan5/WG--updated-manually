@@ -7,8 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from 'lucide-react';
-import { mockProducts } from '@/data/mockProducts';
+import { Search, X } from 'lucide-react';
+import { getProductSuggestions, trackSearch } from '@/services/searchTrackingService';
 
 interface SearchBarProps {
   searchQuery: string; // Current search query text
@@ -35,31 +35,23 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setHighlightedIndex(-1);
   }, [location.pathname]);
 
-  // Generate suggestions based on input
+  // Generate suggestions based on input from database
   useEffect(() => {
-    if (searchQuery.length >= 1) {
-      const products = mockProducts.map(p => p.name);
-      const brands = [...new Set(mockProducts.map(p => p.brand))];
-      const categories = [...new Set(mockProducts.map(p => p.category))];
-      const fabrics = [...new Set(mockProducts.map(p => p.fabric).filter(Boolean))];
-      const colors = [...new Set(mockProducts.map(p => p.color).filter(Boolean))];
-      const gender = [...new Set(mockProducts.map(p => p.gender).filter(Boolean))]; // New gender suggestions
+    const loadSuggestions = async () => {
+      if (searchQuery.length >= 2) {
+        const productSuggestions = await getProductSuggestions(searchQuery, 8);
+        setSuggestions(productSuggestions);
+        setShowSuggestions(productSuggestions.length > 0);
+        setHighlightedIndex(-1);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+      }
+    };
 
-      // Combine all fields
-      const allSuggestions = [...products, ...brands, ...categories, ...fabrics, ...colors, ...gender];
-
-      // Filter suggestions matching the query - removed limit to show all matching results
-      const filtered = allSuggestions.filter(item =>
-        item.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setHighlightedIndex(-1);
-    }
+    const timeoutId = setTimeout(loadSuggestions, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
   // Close dropdown if clicked outside
@@ -87,6 +79,9 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setShowSuggestions(false);
     setHighlightedIndex(-1);
     inputRef.current?.blur();
+
+    // Track the selected suggestion
+    trackSearch(suggestion);
 
     setTimeout(() => {
       const form = document.querySelector('form');
@@ -116,7 +111,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
               setSearchQuery(e.target.value);
               setHighlightedIndex(-1);
             }}
-            onFocus={() => searchQuery.length >= 1 && setShowSuggestions(true)}
+            onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
             onKeyDown={(e) => {
               if (!showSuggestions) return;
 
@@ -145,31 +140,54 @@ const SearchBar: React.FC<SearchBarProps> = ({
             aria-activedescendant={
               highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined
             }
+            className="pr-10"
           />
 
-          {showSuggestions && (
+          {searchQuery && (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => {
+                setSearchQuery('');
+                setShowSuggestions(false);
+                inputRef.current?.focus();
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Clear</span>
+            </Button>
+          )}
+
+          {showSuggestions && suggestions.length > 0 && (
             <div
               ref={suggestionsRef}
               id="search-suggestions"
-              className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 overflow-hidden max-h-80 overflow-y-auto"
+              className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 overflow-hidden"
             >
-              <ul className="py-1">
-                {suggestions.map((suggestion, index) => (
-                  <li
-                    key={index}
-                    id={`suggestion-${index}`}
-                    className={`px-4 py-2 cursor-pointer text-left transition-colors ${
-                      index === highlightedIndex
-                        ? 'bg-navy-50 text-navy-900'
-                        : 'hover:bg-navy-50'
-                    }`}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    onClick={() => handleSelectSuggestion(suggestion)}
-                  >
-                    {suggestion}
-                  </li>
-                ))}
-              </ul>
+              <div className="max-h-80 overflow-y-auto">
+                <ul className="py-1">
+                  {suggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      id={`suggestion-${index}`}
+                      className={`px-4 py-2 cursor-pointer text-left transition-colors ${
+                        index === highlightedIndex
+                          ? 'bg-navy-50 text-navy-900'
+                          : 'hover:bg-navy-50'
+                      }`}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      onClick={() => handleSelectSuggestion(suggestion)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Search className="w-4 h-4 text-gray-400" />
+                        <span className="capitalize">{suggestion}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
         </div>

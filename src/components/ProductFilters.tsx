@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -12,48 +12,106 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Filter } from 'lucide-react';
 import SortingControls, { SortOption } from '@/components/search/SortingControls';
+import { getBrands, getCategories, getFabrics, getColors, getMaxPrice } from '@/services/productService';
 
-// Define props interface
 interface FilterProps {
-  onFilterChange: (filters: FilterState) => void; // Callback when filter state changes
+  onFilterChange: (filters: FilterState) => void;
   sortBy: SortOption;
   onSortChange: (sortBy: SortOption) => void;
+  initialCategory?: string;
+  initialIsNew?: boolean;
+  onReset?: () => void;
 }
 
 export interface FilterState {
-  priceRange: [number, number]; // Tuple for price range with exactly two elements
+  priceRange: [number, number];
   brands: string[];
   categories: string[];
   fabricTypes: string[];
   colors: string[];
-  style: string[]; // Optional styles filter
 }
 
-// Main ProductFilters component
-const ProductFilters: React.FC<FilterProps> = ({ onFilterChange, sortBy, onSortChange }) => {
-  // State to toggle visibility of filters on small screens
+const ProductFilters: React.FC<FilterProps> = ({
+  onFilterChange,
+  sortBy,
+  onSortChange,
+  initialCategory,
+  initialIsNew,
+  onReset
+}) => {
   const [isFilterVisible, setIsFilterVisible] = useState(false);
-
-  // State to hold current filters
+  const [maxPrice, setMaxPrice] = useState(25000);
   const [filters, setFilters] = useState<FilterState>({
     priceRange: [0, 25000],
     brands: [],
-    categories: [],
+    categories: initialCategory ? [initialCategory] : [],
     fabricTypes: [],
     colors: [],
-    style: [],
   });
 
-  // Predefined filter options
-  const brands = ["Khaadi", "Sapphire", "Gul Ahmed", "Alkaram", "J.","Sana Safinaz", "LimeLight", "Warda"];
-  const categories = ["Kurta", "Shalwar Kameez", "Lehnga", "Saree", "Dupatta", "Western", "Co-ord Set"];
-  const fabricTypes = ["Cotton", "Lawn", "Silk", "Chiffon", "Organza", "Velvet"];
-  const colors = ["Red", "Blue", "Green", "Yellow", "Orange", "Purple", "Black", "White", "Pink", "Gray ", "Brown", "Beige"];
-  const styles = ["Casual", "Printed", "Embroidered", "Shalwar Suit", "Formal", "Western", "Party Wear"];
+  // Sync with initialCategory changes
+  useEffect(() => {
+    if (initialCategory && !filters.categories.includes(initialCategory)) {
+      setFilters(prev => ({
+        ...prev,
+        categories: [initialCategory]
+      }));
+    }
+  }, [initialCategory]);
 
-  // Handle price range slider value change
+  // Dynamic filter options from Supabase
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableFabrics, setAvailableFabrics] = useState<string[]>([]);
+  const [availableColors, setAvailableColors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load filter options from database
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      setLoading(true);
+      try {
+        console.log('Loading filter options from database...');
+
+        const [brands, categories, fabrics, colors, maxPriceValue] = await Promise.all([
+          getBrands(),
+          getCategories(),
+          getFabrics(),
+          getColors(),
+          getMaxPrice()
+        ]);
+
+        console.log('Filter options loaded:', {
+          brands: brands.length,
+          categories: categories.length,
+          fabrics: fabrics.length,
+          colors: colors.length,
+          maxPrice: maxPriceValue
+        });
+        console.log('All colors:', colors);
+
+        setAvailableBrands(brands);
+        setAvailableCategories(categories);
+        setAvailableFabrics(fabrics);
+        setAvailableColors(colors);
+        setMaxPrice(maxPriceValue);
+
+        // Update price range if needed
+        setFilters(prev => ({
+          ...prev,
+          priceRange: [0, maxPriceValue] as [number, number]
+        }));
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
+
   const handlePriceChange = (value: number[]) => {
-    // Make sure we explicitly cast the price range as a tuple with exactly 2 elements
     const newFilters: FilterState = {
       ...filters,
       priceRange: [value[0], value[1]] as [number, number]
@@ -62,37 +120,52 @@ const ProductFilters: React.FC<FilterProps> = ({ onFilterChange, sortBy, onSortC
     onFilterChange(newFilters);
   };
 
-  // Handle checkbox toggle for brand, category, fabric, color
   const handleCheckboxChange = (
-    category: 'brands' | 'categories' | 'fabricTypes' | 'colors' | 'style',
+    category: 'brands' | 'categories' | 'fabricTypes' | 'colors',
     value: string,
     checked: boolean
   ) => {
     const newFilters: FilterState = { ...filters };
 
     if (checked) {
-      newFilters[category] = [...newFilters[category], value]; // Add selected
+      newFilters[category] = [...newFilters[category], value];
     } else {
-      newFilters[category] = newFilters[category].filter(item => item !== value); // Remove unselected
+      newFilters[category] = newFilters[category].filter(item => item !== value);
     }
 
     setFilters(newFilters);
-    onFilterChange(newFilters); // Trigger callback
+    onFilterChange(newFilters);
   };
 
-  // Reset all filters to default state
   const resetFilters = () => {
     const defaultFilters: FilterState = {
-      priceRange: [0, 25000],
+      priceRange: [0, maxPrice],
       brands: [],
       categories: [],
       fabricTypes: [],
       colors: [],
-      style: [],
     };
     setFilters(defaultFilters);
     onFilterChange(defaultFilters);
+
+    // Call parent reset handler to clear search and URL params
+    if (onReset) {
+      onReset();
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-200 rounded mb-4"></div>
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-12 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -106,22 +179,25 @@ const ProductFilters: React.FC<FilterProps> = ({ onFilterChange, sortBy, onSortC
         Filters
       </Button>
 
-      {/* Filter container, responsive handling */}
+      {/* Filter container */}
       <div className={`${isFilterVisible ? 'block' : 'hidden'} md:block`}>
-        <div className="flex items-center justify-between mb-4 ">
+        <div className="flex items-center justify-between mb-4">
           <Button
-           className='bg-navy-500 text-white px-4 py-2 text-sm hover:bg-stone-600 transition' 
-           variant="ghost" size="sm" onClick={resetFilters}>
+            className='bg-navy-500 text-white px-4 py-2 text-sm hover:bg-stone-600 transition' 
+            variant="ghost" 
+            size="sm" 
+            onClick={resetFilters}
+          >
             Reset
           </Button>
         </div>
 
-        {/* Sorting Controls - Now properly aligned */}
+        {/* Sorting Controls */}
         <div className="mb-6">
           <SortingControls sortBy={sortBy} onSortChange={onSortChange} />
         </div>
 
-        {/* Accordion UI for collapsible filter sections */}
+        {/* Accordion for collapsible filter sections */}
         <Accordion type="single" collapsible className="w-full">
           {/* Price Range Filter */}
           <AccordionItem value="price">
@@ -129,8 +205,8 @@ const ProductFilters: React.FC<FilterProps> = ({ onFilterChange, sortBy, onSortC
             <AccordionContent>
               <div className="py-4">
                 <Slider
-                  defaultValue={[0, 25000]}
-                  max={25000}
+                  defaultValue={[0, maxPrice]}
+                  max={maxPrice}
                   step={500}
                   value={[filters.priceRange[0], filters.priceRange[1]]}
                   onValueChange={handlePriceChange}
@@ -145,121 +221,113 @@ const ProductFilters: React.FC<FilterProps> = ({ onFilterChange, sortBy, onSortC
           </AccordionItem>
 
           {/* Brands Filter */}
-          <AccordionItem value="brands">
-            <AccordionTrigger>Brands</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid grid-cols-1 gap-2">
-                {brands.map((brand) => (
-                  <div key={brand} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`brand-${brand}`}
-                      checked={filters.brands.includes(brand)}
-                      onCheckedChange={(checked) =>
-                        handleCheckboxChange('brands', brand, checked === true)
-                      }
-                    />
-                    <Label htmlFor={`brand-${brand}`} className="text-sm">{brand}</Label>
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+          {availableBrands.length > 0 && (
+            <AccordionItem value="brands">
+              <AccordionTrigger>Brands ({availableBrands.length})</AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                  {availableBrands.map((brand) => (
+                    <div key={brand} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`brand-${brand}`}
+                        checked={filters.brands.includes(brand)}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange('brands', brand, checked === true)
+                        }
+                      />
+                      <Label htmlFor={`brand-${brand}`} className="text-sm cursor-pointer">
+                        {brand}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
 
           {/* Categories Filter */}
-          <AccordionItem value="categories">
-            <AccordionTrigger>Categories</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid grid-cols-1 gap-2">
-                {categories.map((category) => (
-                  <div key={category} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`category-${category}`}
-                      checked={filters.categories.includes(category)}
-                      onCheckedChange={(checked) =>
-                        handleCheckboxChange('categories', category, checked === true)
-                      }
-                    />
-                    <Label htmlFor={`category-${category}`} className="text-sm">{category}</Label>
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+          {availableCategories.length > 0 && (
+            <AccordionItem value="categories">
+              <AccordionTrigger>Categories ({availableCategories.length})</AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                  {availableCategories.map((category) => (
+                    <div key={category} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`category-${category}`}
+                        checked={filters.categories.includes(category)}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange('categories', category, checked === true)
+                        }
+                      />
+                      <Label htmlFor={`category-${category}`} className="text-sm cursor-pointer">
+                        {category}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
 
           {/* Fabric Filter */}
-          <AccordionItem value="fabric">
-            <AccordionTrigger>Fabric</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid grid-cols-1 gap-2">
-                {fabricTypes.map((fabric) => (
-                  <div key={fabric} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`fabric-${fabric}`}
-                      checked={filters.fabricTypes.includes(fabric)}
-                      onCheckedChange={(checked) =>
-                        handleCheckboxChange('fabricTypes', fabric, checked === true)
-                      }
-                    />
-                    <Label htmlFor={`fabric-${fabric}`} className="text-sm">{fabric}</Label>
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+          {availableFabrics.length > 0 && (
+            <AccordionItem value="fabric">
+              <AccordionTrigger>Fabric ({availableFabrics.length})</AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                  {availableFabrics.map((fabric) => (
+                    <div key={fabric} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`fabric-${fabric}`}
+                        checked={filters.fabricTypes.includes(fabric)}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange('fabricTypes', fabric, checked === true)
+                        }
+                      />
+                      <Label htmlFor={`fabric-${fabric}`} className="text-sm cursor-pointer">
+                        {fabric}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
 
           {/* Colors Filter */}
-          <AccordionItem value="colors">
-            <AccordionTrigger>Colors</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid grid-cols-1 gap-2">
-                {colors.map((color) => (
-                  <div key={color} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`color-${color}`}
-                      checked={filters.colors.includes(color)}
-                      onCheckedChange={(checked) =>
-                        handleCheckboxChange('colors', color, checked === true)
-                      }
-                    />
-                    <Label htmlFor={`color-${color}`} className="text-sm">
-                      <span className="flex items-center">
-                        <span
-                          className="w-3 h-3 inline-block rounded-full mr-2"
-                          style={{
-                            backgroundColor: color.toLowerCase(),
-                            border: color.toLowerCase() === 'white' ? '1px solid #ddd' : 'none'
-                          }}
-                        />
-                        {color}
-                      </span>
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Style Filter */}
-          <AccordionItem value="style">
-            <AccordionTrigger>Style</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid grid-cols-1 gap-2">
-                {styles.map((style) => (
-                  <div key={style} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`style-${style}`}
-                      checked={filters.style.includes(style)}
-                      onCheckedChange={(checked) =>
-                        handleCheckboxChange('style', style, checked === true)
-                      }
-                    />
-                    <Label htmlFor={`style-${style}`} className="text-sm">{style}</Label>
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
+          {availableColors.length > 0 && (
+            <AccordionItem value="colors">
+              <AccordionTrigger>Colors ({availableColors.length})</AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                  {availableColors.map((color) => (
+                    <div key={color} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`color-${color}`}
+                        checked={filters.colors.includes(color)}
+                        onCheckedChange={(checked) =>
+                          handleCheckboxChange('colors', color, checked === true)
+                        }
+                      />
+                      <Label htmlFor={`color-${color}`} className="text-sm cursor-pointer">
+                        <span className="flex items-center">
+                          <span
+                            className="w-3 h-3 inline-block rounded-full mr-2 border"
+                            style={{
+                              backgroundColor: color.toLowerCase(),
+                              borderColor: color.toLowerCase() === 'white' ? '#ddd' : 'transparent'
+                            }}
+                          />
+                          {color}
+                        </span>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
         </Accordion>
       </div>
     </>
