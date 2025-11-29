@@ -16,7 +16,7 @@ const mapProductCardToProductProps = (productCard: Tables<"ProductCard">): Produ
   isNew: productCard.is_new,
   gender: productCard.gender,
   productUrl: productCard.product_url,
-  style: productCard.Style
+  style: productCard.style
 });
 
 // Save viewed product for recommendation tracking
@@ -145,7 +145,7 @@ export const getTrendingProducts = async (limit: number = 8): Promise<ProductPro
       .from('ProductCard')
       .select('*')
       .eq('in_stock', true)
-      .eq('is_new', true)
+      .eq('is_new', "New")
       .order('Scraped_at', { ascending: false })
       .limit(limit);
 

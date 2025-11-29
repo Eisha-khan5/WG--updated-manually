@@ -14,6 +14,7 @@ const mapToProductProps = (productCard: any): ProductProps => ({
   discount: productCard.discount,
   isNew: productCard.is_new,
   gender: productCard.gender
+  
 });
 
 export const getWishlist = async (userId: string): Promise<ProductProps[]> => {

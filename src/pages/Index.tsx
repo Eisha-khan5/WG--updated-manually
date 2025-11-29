@@ -4,15 +4,15 @@ import Navbar from '@/components/Navbar';
 import SearchHero from '@/components/SearchHero';
 import ProductCard from '@/components/ProductCard';
 import CategoryCarousel from '@/components/CategoryCarousel';
+import StyleCarousel from '@/components/StyleCarousel';
 import Footer from '@/components/Footer';
 import { getProductsForHomepageCategories } from '@/services/productService';
 import { fetchProducts } from '@/services/productService';
-import { fetchProductsByStyles } from '@/services/productService';
+import { fetchProductsByStyles, fetchNewArrivals } from '@/services/productService';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button'; // Custom button component
 import { ProductProps } from '@/components/ProductCard';
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -23,32 +23,6 @@ const Index = () => {
   const [categoryItems, setCategoryItems] = useState<{ name: string; image: string; description: string }[]>([]); const handleSearch = (query: string) => {
     navigate(`/search?q=${encodeURIComponent(query)}`);
   };
-
-  // Fetch categories for the homepage category carousel
-  useEffect(() => {
-    const fetchCategoryItems = async () => {
-      const data: Record<string, ProductProps[]> = await getProductsForHomepageCategories();
-
-      const items = Object.entries(data)
-        .map(([categoryName, products]) => {
-          if (!products || products.length === 0) return null;
-
-          // Pick the first product that has a style
-          const productWithStyle = products.find(p => p.style);
-          if (!productWithStyle) return null;
-
-          return {
-            name: categoryName,
-            image: productWithStyle.imageUrl,
-            description: productWithStyle.style!
-          };
-        })
-        .filter(Boolean) as { name: string; image: string; description: string }[];
-      setCategoryItems(items);
-    };
-
-    fetchCategoryItems();
-  }, []);
 
   // shop by style section
   useEffect(() => {
@@ -72,39 +46,60 @@ const Index = () => {
     fetchStyles();
   }, []);
 
-  const scrollLeft = () => {
-    sliderRef.current?.scrollBy({ left: -300, behavior: "smooth" });
-  };
+  // Fetch categories for the homepage carousel
+  useEffect(() => {
+    const fetchCategoryItems = async () => {
+      try {
+        const data = await getProductsForHomepageCategories();
 
-  const scrollRight = () => {
-    sliderRef.current?.scrollBy({ left: 300, behavior: "smooth" });
-  }
+        const items = Object.entries(data)
+          .map(([categoryName, products]) => {
+            if (!products || products.length === 0) return null;
 
-  const handleStyleClick = (style: string) => {
-    navigate(`/search?q=${encodeURIComponent(style)}`);
-  };
+            const productWithStyle = products.find(
+              p => p.style && p.imageUrl
+            );
+
+            if (!productWithStyle) return null;
+
+            return {
+              name: categoryName,
+              image: productWithStyle.imageUrl,
+              description: productWithStyle.style.trim(),
+            };
+          })
+          .filter(Boolean);
+
+        setCategoryItems(items);
+      } catch (error) {
+        console.error("Error fetching homepage categories:", error);
+      }
+    };
+
+    fetchCategoryItems();
+  }, []);
 
   // Fetch featured products for the homepage
   const [featuredProducts, setFeaturedProducts] = useState<ProductProps[]>([]);
+
   useEffect(() => {
     const loadProducts = async () => {
       const products = await fetchProducts();
-      setFeaturedProducts(products.slice(0, 4)); // Show only 4 products
+      setFeaturedProducts(products.slice(0, 4)); // Display first 4 featured products
     };
 
     loadProducts();
   }, []);
 
-
-  // Fetch trending products for the homepage
-  const [trendingProducts, setTrendingProducts] = useState<ProductProps[]>([]);
-
+  // New Arrivals Section
+  const [newArrivalProducts, setNewArrivalProducts] = useState<ProductProps[]>([]);
   useEffect(() => {
-    const loadProducts = async () => {
-      const result = await fetchProductsByStyles();
-      setTrendingProducts(result.slice(0, 4));
+    const loadNewArrivals = async () => {
+      const products = await fetchNewArrivals();
+      setNewArrivalProducts(products.slice(0, 4)); // Show only 4 new arrival products
     };
-    loadProducts();
+
+    loadNewArrivals();
   }, []);
 
   // Animation remain the same
@@ -135,9 +130,11 @@ const Index = () => {
         {/* Category Carousel - With Title */}
         <section className="my-4 md:my-5">
           <div className="container mx-50 ">
-            <h2 className="card-heading text-center text-2xl font-semibold mb-4">
+            <h2 className="card-heading text-center text-2xl font-semibold mb-2">
               Shop by Category
             </h2>
+            <p className="card-subheading">
+              Explore our diverse collection organized by categories </p>
             <CategoryCarousel categories={categoryItems} />
           </div>
         </section>
@@ -146,17 +143,27 @@ const Index = () => {
         <section className="section-container collections-bg my-4 md:my-5">
           <div className="container mx-auto px-4">
 
-            <div className="relative flex items-center justify-center mb-8">
-              {/* Centered Heading */}
-              <h2 className="card-heading text-center mt-2">Featured Products</h2>
+            <div className="relative mb-8 flex items-center justify-between">
 
-              {/* Right-Aligned Button using absolute positioning */}
+              {/* Heading & Subheading Centered */}
+              <div className="text-center flex-1">
+                <h2 className="card-heading text-center mt-2">Featured Collections</h2>
+                <p className="card-subheading mt-1">
+                  Handpicked pieces from our most popular collection
+                </p>
+              </div>
+
+              {/* Right-Aligned Button */}
               <Button
-                className="absolute right-0 bg-navy-500 text-white px-4 py-2 rounded-full text-sm hover:bg-stone-600 transition"
-                onClick={() => navigate('/search')}
+                className="bg-navy-500 text-white px-4 py-2 rounded-full text-sm hover:bg-stone-600 transition"
+                onClick={() => {
+                  // Navigate to search page showing all products (same as featured section + more recent)
+                  navigate('/search');
+                }}
               >
                 View All
               </Button>
+
             </div>
 
             <motion.div
@@ -179,161 +186,129 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Shop by Style */}
-        <section className="section-container categories-bg">
-          <div className="w-full px-4 mt-3">
-            <div className="max-w-3xl mx-auto text-center mb-8">
-              <h2 className="card-heading mt-4">Shop by Style</h2>
-              <p className="card-subheading">
-                Explore our curated collections of Pakistani fashion styles
-              </p>
-            </div>
+        {/* Shop by style carousel */}
+        <div>
+          <div className="text-center mb-12">
+            <h2 className="card-heading mt-4">Shop by Style</h2>
+            <p className="text-stone-600 text-lg">
+              Discover products curated by unique styles
+            </p>
+            {/* Right-Aligned Button using absolute positioning */}
+            <Button
+              className="absolute right-11 bg-navy-500 text-white px-4 py-2 rounded-full text-sm hover:bg-stone-600 transition"
+              onClick={() => navigate('/search')}
+            >
+              View All
+            </Button>
+          </div>
+          <StyleCarousel />
+          <div className="text-center mt-8">
 
-            {/* Wrapper with arrows outside */}
-            <div className="flex items-center gap-4">
-              {/* Left Arrow */}
-              <button
-                onClick={scrollLeft}
-                className="bg-white shadow-md p-2 rounded-full"
-              >
-                <ChevronLeft size={20} />
-              </button>
+          </div>
+        </div>
 
-              {/* Cards Carousel */}
-              <div className="overflow-hidden flex-1">
-                <div
-                  ref={sliderRef}
-                  className="flex gap-4 md:gap-6 overflow-x-scroll scroll-smooth no-scrollbar w-full"
-                >
-                  {styleItems.map((uniqueProduct, index) => (
-                    <motion.div
-                      key={uniqueProduct.name}
-                      className="category-card flex-shrink-0 w-[250px] md:w-[300px] lg:w-[350px]"
-                      onClick={() => handleStyleClick(uniqueProduct.name)}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                      whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
-                    >
-                      <div className="w-full h-[250px] md:h-[300px] lg:h-[350px] overflow-hidden rounded-lg">
-                        <img
-                          src={uniqueProduct.image}
-                          alt={uniqueProduct.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="category-card-content">
-                        <h3 className="font-medium text-base md:text-lg">{uniqueProduct.name}</h3>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+        {/* New Arrivals Section */}
+        <section className="section-container collections-bg my-4 md:my-5">
+          <div className="container mx-auto px-4">
+
+            {/* Heading & Button */}
+            <div className="relative mb-8 flex items-center justify-between">
+              <div className="text-center flex-1">
+                <h2 className="card-heading mt-2">New Arrivals</h2>
+                <p className="card-subheading mt-1">
+                  Fresh styles just added to our collection
+                </p>
               </div>
 
-              {/* Right Arrow */}
-              <button
-                onClick={scrollRight}
-                className="bg-white shadow-md p-2 rounded-full"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Trending Products */}
-        <section className="section-container trending-bg my-4 md:my-5">
-          <div className="container mx-auto px-4">
-            <div className="max-w-3xl mx-auto text-center mb-8">
-              <h2 className="card-heading mt-4">Trending Now</h2>
-              <p className="card-subheading">
-                See what's popular among our fashion-forward customers
-              </p>
-              {/* Right-Aligned Button using absolute positioning */}
               <Button
-                 className="absolute right-0 top-[15px] bg-navy-500 text-white px-4 py-2 rounded-full text-sm hover:bg-stone-600 transition"
-                onClick={() => navigate('/search')}
+                className="bg-navy-500 text-white px-4 py-2 rounded-full text-sm hover:bg-stone-600 transition"
+                onClick={() => navigate('/search?isNew=true')}
               >
                 View All
               </Button>
             </div>
 
+            {/* Products Grid */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6"
             >
-              {trendingProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
-                  <ProductCard {...product} />
-                </motion.div>
-              ))}
+              {newArrivalProducts.length > 0 ? (
+                newArrivalProducts.map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                  >
+                    <ProductCard {...product} />
+                  </motion.div>
+                ))
+              ) : (
+                <p className="col-span-full text-center text-gray-500">
+                  No new arrivals at the moment.
+                </p>
+              )}
             </motion.div>
-
           </div>
         </section>
 
         {/* How It Works */}
-        <section className="section-container how-it-works-bg ">
-          <div className="container mx-auto px-2 pb-3">
-            <div className="max-w-3xl mx-auto text-center mb-8">
-              <h2 className="card-heading text-stone-800 mt-4">How It Works</h2>
-              <p className="card-subheading text-stone-600">
-                Finding your perfect Pakistani outfit has never been easier
+        <section className="py-4 bg-stone-100">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="card-heading mt-4">
+                How Our Platform Works
+              </h2>
+              <p className="text-stone-600 text-lg max-w-3xl mx-auto">
+                Discover, compare, and find your perfect style from curated fashion collections
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6">
-              <motion.div
-                className="elegant-card p-6 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-              >
-                <div className="bg-neutral-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-                  <span className="text-stone-600 text-2xl font-bold">1</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto">
+              <div className="text-center group">
+                <div className="w-20 h-20 bg-navy-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-stone-200 transition-colors">
+                  <svg className="w-10 h-10 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </div>
-                <h3 className="font-medium text-xl mb-3 text-stone-800">Search Naturally</h3>
-                <p className="text-stone-600">
-                  Describe what you're looking for in natural language, like you would to a friend.
+                <h3 className="font-serif text-xl font-semibold text-navy-800 mb-4">
+                  1. Search & Discover
+                </h3>
+                <p className="text-stone-600 leading-relaxed">
+                  Use our smart search to find exactly what you're looking for. Search by style, color, fabric, or even describe what you want in natural language.
                 </p>
-              </motion.div>
+              </div>
 
-              <motion.div
-                className="elegant-card p-6 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-              >
-                <div className="bg-neutral-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-                  <span className="text-stone-600 text-2xl font-bold">2</span>
+              <div className="text-center group">
+                <div className="w-20 h-20 bg-navy-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-stone-300 transition-colors">
+                  <svg className="w-10 h-10 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
                 </div>
-                <h3 className="font-medium text-xl mb-3 text-stone-800">Browse Results</h3>
-                <p className="text-stone-600">
-                  Discover items across multiple Pakistani brands that match your specific requirements.
+                <h3 className="font-serif text-xl font-semibold text-navy-800 mb-4">
+                  2. Save Your Favorites
+                </h3>
+                <p className="text-stone-600 leading-relaxed">
+                  Create your personal wishlist by saving items you love. Compare prices, styles, and features to make the perfect choice for your wardrobe.
                 </p>
-              </motion.div>
+              </div>
 
-              <motion.div
-                className="elegant-card p-6 text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
-              >
-                <div className="bg-neutral-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-                  <span className="text-stone-600 text-2xl font-bold">3</span>
+              <div className="text-center group">
+                <div className="w-20 h-20 bg-navy-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-stone-300 transition-colors">
+                  <svg className="w-10 h-10 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </div>
-                <h3 className="font-medium text-xl mb-3 text-stone-800">Shop with Confidence</h3>
-                <p className="text-stone-600">
-                  Visit the brand's website to complete your purchase with all the information you need.
+                <h3 className="font-serif text-xl font-semibold text-navy-800 mb-4">
+                  3. Visit & Purchase
+                </h3>
+                <p className="text-stone-600 leading-relaxed">
+                  Click "Visit Website" to go directly to the retailer's page and complete your purchase. We connect you with trusted fashion retailers seamlessly.
                 </p>
-              </motion.div>
+              </div>
             </div>
           </div>
         </section>
