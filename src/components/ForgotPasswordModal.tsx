@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -40,59 +41,29 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Check if email exists in registered users with better error handling
-      const registeredUsersData = localStorage.getItem('registered_users');
-      console.log('Registered users data:', registeredUsersData);
-      
-      let registeredUsers = [];
-      try {
-        registeredUsers = registeredUsersData ? JSON.parse(registeredUsersData) : [];
-      } catch (parseError) {
-        console.error('Error parsing registered users:', parseError);
-        registeredUsers = [];
-      }
-      
-      console.log('Parsed registered users:', registeredUsers);
-      console.log('Looking for email:', email.toLowerCase());
-      
-      // More robust email checking
-      const userExists = registeredUsers.some((user: any) => {
-        console.log('Checking user:', user);
-        return user && user.email && user.email.toLowerCase() === email.toLowerCase();
+      // Use Supabase password reset
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
       });
-      
-      console.log('User exists:', userExists);
-      
-      if (!userExists) {
-        // For demo purposes, we'll allow password reset for any valid email format
-        // In a real app, this would be handled by the backend
-        console.log('User not found in registered users, but proceeding with demo reset');
+
+      if (error) {
+        console.error('Password reset error:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send reset email. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Simulate password reset email sending
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Store a temporary reset token for demo purposes
-      const resetToken = `reset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const resetData = {
-        email: email.toLowerCase(),
-        token: resetToken,
-        timestamp: Date.now(),
-        used: false
-      };
-      
-      const existingResets = JSON.parse(localStorage.getItem('password_resets') || '[]');
-      existingResets.push(resetData);
-      localStorage.setItem('password_resets', JSON.stringify(existingResets));
-      
       setIsSubmitted(true);
       toast({
         title: "Reset link sent!",
         description: "Please check your email for password reset instructions.",
       });
-      
+
     } catch (error) {
       console.error('Password reset error:', error);
       toast({

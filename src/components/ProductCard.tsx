@@ -26,7 +26,7 @@ export interface ProductProps {
   fabric?: string;
   color?: string;
   discount?: number;
-  isNew?: boolean;
+  isNew?: string;
   alternateImageUrl?: string;
   gender: string; 
   productUrl: string

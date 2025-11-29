@@ -20,7 +20,6 @@ import Wishlist from './pages/Wishlist';         // Wishlist page
 import Dashboard from './pages/Dashboard';       // Customer dashboard page
 import About from './pages/About';               // About us page
 import Auth from './pages/Auth';                 // Authentication page
-import Brands from './pages/Brands';             // Brands page
 import NotFound from './pages/NotFound';         // Fallback for undefined routes (404)
 
 // Import global styles
@@ -41,7 +40,6 @@ function App() {
           <Route path="/wishlist" element={<Wishlist />} /> {/* User's wishlist */}
           <Route path="/dashboard" element={<Dashboard />} /> {/* Customer dashboard */}
           <Route path="/about" element={<About />} /> {/* About page */}
-          <Route path="/brands" element={<Brands />} /> {/* Brands page */}
           <Route path="/auth" element={<Auth />} /> {/* Authentication page */}
           <Route path="*" element={<NotFound />} /> {/* 404 - Page not found */}
         </Routes>

@@ -62,11 +62,11 @@ export const Navbar = () => {
           <div className="flex items-center space-x-6">
             <div className="flex space-x-4 mr-2">
               <Link to="/" className="text-black-600 font-medium hover:text-gray-600">Home</Link>
-              <Link to="/brands" className="text-black-600 font-medium hover:text-gray-600">Brands</Link>
+              {/* <Link to="/brands" className="text-black-600 font-medium hover:text-gray-600">Brands</Link> */}
             </div>
 
             <div className="flex items-center space-x-3">
-               {/* Search button */}
+              {/* Search button */}
               <Link to="/search">
                 <Button variant="outline" size="icon" className="rounded-full hover:bg-navy-50">
                   <Search className="h-5 w-5" />
@@ -74,7 +74,7 @@ export const Navbar = () => {
                 </Button>
               </Link>
 
-                {/* Wishlist button */}
+              {/* Wishlist button */}
               <button onClick={handleWishlistClick}>
                 <Button variant="outline" size="icon" className="rounded-full hover:bg-navy-50">
                   <Bookmark className="h-5 w-5" />
@@ -82,12 +82,12 @@ export const Navbar = () => {
                 </Button>
               </button>
 
-               {/* Authentication buttons */}
-               {isAuthenticated ? (
+              {/* Authentication buttons */}
+              {isAuthenticated ? (
                 <Link to="/dashboard">
-                  <Button
+                  <Button variant='outline'
                     size="icon"
-                    className="bg-gradient-to-r from-navy-600 to-navy-600 hover:from-stone-600 hover:to-stone-600 text-white rounded-full shadow-sm transition-all duration-300"
+                    className="rounded-full hover:bg-navy-50 "
                   >
                     <User className="h-4 w-4" />
                     <span className="sr-only">Dashboard</span>
@@ -115,8 +115,8 @@ export const Navbar = () => {
               className="rounded-full bg-white/10 hover:bg-white/20 border border-gray-200 shadow-sm"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? 
-                <X className="h-5 w-5 text-gray-900" /> : 
+              {isMenuOpen ?
+                <X className="h-5 w-5 text-gray-900" /> :
                 <Menu className="h-5 w-5 text-gray-900" />
               }
               <span className="sr-only">Menu</span>
@@ -129,15 +129,15 @@ export const Navbar = () => {
       {isMobile && isMenuOpen && (
         <div className="fixed inset-0 bg-gradient-to-b from-white/98 to-neutral-50/98 backdrop-blur-sm z-40 pt-20">
           <div className="container mx-auto px-4 flex flex-col gap-4">
-             {/* Mobile Links */}
+            {/* Mobile Links */}
             <Link to="/" className="py-4 border-b border-neutral-100 flex items-center transition-colors hover:text-stone-700" onClick={() => setIsMenuOpen(false)}>
               Home
             </Link>
 
-            <Link to="/brands" className="py-4 border-b border-neutral-100 flex items-center transition-colors hover:text-stone-700" onClick={() => setIsMenuOpen(false)}>
+            {/* <Link to="/brands" className="py-4 border-b border-neutral-100 flex items-center transition-colors hover:text-stone-700" onClick={() => setIsMenuOpen(false)}>
               Brands
-            </Link>
-            
+            </Link> */}
+
             <Link to="/search" className="py-4 border-b border-neutral-100 flex items-center transition-colors hover:text-stone-700" onClick={() => setIsMenuOpen(false)}>
               <Search className="h-5 w-5 mr-4" />
               Search Products
@@ -160,7 +160,7 @@ export const Navbar = () => {
               </Link>
             )}
 
-             {/* Mobile auth button */}
+            {/* Mobile auth button */}
             {!isAuthenticated && (
               <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
                 <Button className="mt-6 w-full bg-gradient-to-r from-stone-600 to-stone-700 hover:from-stone-700 hover:to-stone-800 text-white rounded-full py-6 transition-all duration-300">
